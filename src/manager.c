@@ -13,7 +13,7 @@ int				connect_workers(t_node **workers, size_t *worker_count,
 	if (!*workers)
 		return (0);
 	if ((*workers)->left)
-		connect_workers(&(*workers)->left, rm_tree, proto);
+		connect_workers(&(*workers)->left, worker_count, rm_tree, proto);
 	worker = (*workers)->data;
 	if ((worker->sock = socket(PF_INET, SOCK_STREAM, proto)) == -1)
 		hermes_error(errno, TRUE, 2, "socket()", strerror(errno));
@@ -25,7 +25,19 @@ int				connect_workers(t_node **workers, size_t *worker_count,
 		*worker_count -= 1;
 	}
 	if ((*workers)->right)
-		connect_workers(&(*workers)->right, rm_tree, proto);
+		connect_workers(&(*workers)->right, worker_count, rm_tree, proto);
+}
+
+void	divide_work(t_node *tree, t_node **worktree, cmp, int count)
+{
+	if (count > 0)
+	{
+		if (tree) {
+			divide_work(tree->left, worktree, cmp);
+			add_node(worktree, tree->data, cmp);
+			divide_work(tree->right, worktree, cmp);
+		}
+	}
 }
 
 int					manager(t_job *job)
@@ -42,6 +54,12 @@ int					manager(t_job *job)
 		/*TODO divide work, and distribute to workers*/
 	}
 	/* Divide work amongst thread count, send jobs to workersspawn threads*/
+	// count = job->whatever->count / threads;
+	// while (threads > 0)
+	// {
+	//     divide_work(job->whatever->nodes, t_node &worktree, cmp_func, count);
+	//	   threads--;
+	// }
 	// TODO : do things
 	return (0);
 }
@@ -112,10 +130,10 @@ int main(void)
 			worker = new_node();
 			worker->data = new_worker();
 			prompt("ip > ", input, 20);
-			if (parse_ip(&WORKER(worker)->ip, strtrim(input)) < 0)
+			if (parse_ip(&WORKER(worker)->sin.sin_addr.s_addr, strtrim(input)) < 0)
 				hermes_error(INPUT_ERROR, TRUE, 2, "parsing ip", strerror(errno));
 			prompt("port > ", input, 20);
-			if (parse_port(&WORKER(worker)->port, strtrim(input)) < 0)
+			if (parse_port(&WORKER(worker)->sin.sin_port, strtrim(input)) < 0)
 				hermes_error(INPUT_ERROR, TRUE, 2, "parsing port", strerror(errno));
 			if (add_node(&(job->worker_list.workers), &worker, worker_cmp) < 0)
 				hermes_error(INPUT_ERROR, TRUE, 2, "adding worker", strerror(errno));
@@ -139,56 +157,3 @@ int main(void)
 	}
 }
 #endif
-
-//int						connect_workers(t_node *w, size_t n)
-//{
-//	struct sockaddr_in  *res;
-//	struct addrinfo		hints;
-//	struct protoent		*proto;
-//	char				ip[INET_ADDRSTRLEN];
-//
-//	if (!w)
-//		return (0);
-//	res = NULL;
-//	memset(&hints, 0, sizeof(struct addrinfo));
-//	set_hints(&hints);
-//	printf("%d\n", n);
-//	if (!(proto = getprotobyname("tcp")))
-//		hermes_error(INPUT_ERROR, TRUE, 2, "getprotobyname()", strerror(errno));
-//	if (n > 0 && WORKER(w))
-//	{
-//		// TODO : itoa hermeslib
-//		// not sure if want to return error or keep trying for all workers
-//		if (inet_ntop(AF_INET, &WORKER(w)->ip, &ip, sizeof(ip)) > 0) {
-//			if (getaddrinfo(ip, htons(WORKER(w)->port), &hints, &res) >= 0) {
-//				if ((WORKER(w)->sock = socket(PF_INET, SOCK_STREAM, proto->p_proto)) >= 0) {
-//					if (setsockopt(session->lsock, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) >= 0) {
-//						if (connect(WORKER(w)->sock, res->sin_addr, res->sin_addrlen) >= 0) {
-//							if (bind(WORKER(w)->sock, &res->sin_addr, sizeof(res->sin_addrlen)) < 0) {
-//								close(WORKER(w)->sock);
-//								return (hermes_error(INPUT_ERROR, FALSE, 2, "bind()", strerror(errno)));
-//							}
-//						} else {
-//							return (hermes_error(INPUT_ERROR, FALSE, 2, "connect()", strerror(errno)));
-//						}
-//					} else {
-//						s = getaddrinfo(NULL, argv[1], &hints, &result);
-//						hermes_error(INPUT_ERROR, TRUE, 2, "setsockopt()", strerror(errno));
-//					}
-//				} else {
-//					return (hermes_error(INPUT_ERROR, FALSE, 2, "socket()", strerror(errno)));
-//				}
-//			} else {
-//				return (hermes_error(INPUT_ERROR, FALSE, 2, "getaddrinfo()", strerror(errno)));
-//			}
-//		} else {
-//			return (hermes_error(INPUT_ERROR, FALSE, 2, "inet conversion", strerror(errno)));
-//		}
-//		freeaddrinfo(res);
-//		if (w->left)
-//			return (connect_workers(w->left, n - 1));
-//		if (w->right)
-//			return (connect_workers(w->right, n - 1));
-//	}
-//	return (SUCCESS);
-//}
